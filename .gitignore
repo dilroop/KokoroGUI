@@ -4,3 +4,5 @@ kokoro_modules/
 __pycache__/
 *.onnx
 *.bin
+
+gui_config.json

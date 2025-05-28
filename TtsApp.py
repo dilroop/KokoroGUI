@@ -1,13 +1,9 @@
 import numpy as np
-import torch
 from kokoro_onnx import Kokoro # Assuming kokoro_onnx is installed and accessible
 import logging
 import os
-import requests
 import ensure_models as downloadUtils
 from constants import MODEL_DIR, MODEL_FILENAME, VOICES_FILENAME, supported_languages, supported_languages_display, supported_voices
-from tqdm import tqdm
-import io
 import soundfile as sf # For saving audio to a file
 import sounddevice as sd # For playing audio
 import tkinter as tk
@@ -76,12 +72,10 @@ def stop_audio():
     except Exception as e:
         print(f"Error stopping audio playback: {e}")
 
-def save_audio_to_wav(audio_array: np.ndarray, sample_rate: int, output_filename: str):
+def save_audio_to_wav(audio_array: np.ndarray, sample_rate: int):
     try:
         file_path = filedialog.asksaveasfilename(defaultextension=".wav", filetypes=[("WAV files", "*.wav")], title="Save Audio As")
         sf.write(file_path, audio_array, sample_rate)
-
-        print(f"Audio saved to '{output_filename}'")
     except Exception as e:
         print(f"Error saving audio to WAV: {e}")
 
@@ -90,7 +84,7 @@ class TTSApp:
     def __init__(self, master):
         self.master = master
         master.title("Kokoro TTS Generator")
-        master.geometry("650x600") # Adjust window size
+        master.geometry("720x600") # Adjust window size
 
         # Use the 'clam' theme for better button contrast (you can try others like 'alt', 'default', 'classic')
         style = ttk.Style()
@@ -179,7 +173,10 @@ class TTSApp:
         self.play_button = ttk.Button(button_frame, text="Play Last Generated Audio", command=self.play_last_audio, state=tk.DISABLED)
         self.play_button.pack(side=tk.LEFT, padx=5, expand=True, fill="x")
         
-        self.stop_button = ttk.Button(button_frame, text="Stop Playing", command=self.stop_last_audio, state=tk.ACTIVE)
+        self.stop_button = ttk.Button(button_frame, text="Save", command=self.save_last_audio, state=tk.ACTIVE)
+        self.stop_button.pack(side=tk.LEFT, padx=5)
+
+        self.stop_button = ttk.Button(button_frame, text="Stop", command=self.stop_last_audio, state=tk.ACTIVE)
         self.stop_button.pack(side=tk.LEFT, padx=5)
 
     def generate_and_play_audio(self):
@@ -227,10 +224,6 @@ class TTSApp:
             play_audio(audio_data, sample_rate)
             self.stop_button.config(state=tk.NORMAL) # Enable stop button
 
-            # 4. Save audio for FFmpeg using the new timestamp function
-            self.last_output_filename = downloadUtils.generate_timestamp_filename()
-            save_audio_to_wav(audio_data, sample_rate, self.last_output_filename)
-
             # Enable play button
             self.play_button.config(state=tk.NORMAL)
 
@@ -252,6 +245,9 @@ class TTSApp:
 
     def stop_last_audio(self):
         stop_audio()
+
+    def save_last_audio(self):
+        save_audio_to_wav(self.last_audio_data, self.last_sample_rate)
 
     def on_closing(self):
         try:
