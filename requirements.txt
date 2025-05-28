@@ -1,0 +1,7 @@
+numpy
+torch
+kokoro-onnx
+requests
+tqdm
+soundfile
+sounddevice
