@@ -1,16 +1,18 @@
 import os
 
-# Set a directory for models and voices, e.g., in the same directory as your script
-MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kokoro_models")
-os.makedirs(MODEL_DIR, exist_ok=True) # Ensure the directory exists
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+MODELS_DIR = os.path.join(PROJECT_DIR, "kokoro_models")
 MODEL_URL = "https://github.com/taylorchu/kokoro-onnx/releases/download/v0.2.0/kokoro.onnx"
-MODEL_FILENAME = "kokoro_v1.onnx"
-VOICES_FILENAME = "voices_v1.bin"
+_MODEL_FILENAME = "kokoro_v1.onnx"
+_VOICES_FILENAME = "voices_v1.bin"
 
-supported_languages_display = ["English", "English (British)","French", "Japanese", "Hindi", "Mandarin Chinese", "Spanish", "Brazilian Portuguese", "Italian"]
+MODEL_PATH = os.path.join(MODELS_DIR, _MODEL_FILENAME)
+VOICES_PATH = os.path.join(MODELS_DIR, _VOICES_FILENAME)
 
-supported_languages = {
+SUPPORTED_LANGUAGES_DISPLAY = ["English", "English (British)","French", "Japanese", "Hindi", "Mandarin Chinese", "Spanish", "Brazilian Portuguese", "Italian"]
+
+SUPPORTED_LANGUAGES = {
     "English": "en-us",
     "English (British)": "en-gb",
     "French": "fr-fr",
@@ -22,7 +24,7 @@ supported_languages = {
     "Italian": "it",
 }
 
-supported_voices =[
+SUPPORTED_VOICES =[
     # American Female
     "af_heart", "af_alloy", "af_aoede", "af_bella", "af_jessica", "af_kore", "af_nicole", "af_nova", "af_river", "af_sarah", "af_sky",
     #American Male

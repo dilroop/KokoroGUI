@@ -3,7 +3,7 @@ from kokoro_onnx import Kokoro # Assuming kokoro_onnx is installed and accessibl
 import logging
 import os
 import ensure_models as downloadUtils
-from constants import MODEL_DIR, MODEL_FILENAME, VOICES_FILENAME, supported_languages, supported_languages_display, supported_voices
+import constants
 import soundfile as sf # For saving audio to a file
 import sounddevice as sd # For playing audio
 import tkinter as tk
@@ -15,37 +15,34 @@ logger = downloadUtils.logger
 # --- Main Program Logic ---
 # A wrapper class to manage Kokoro model loading and text-to-speech generation
 class KokoroTTS:
-    def __init__(self, model_dir):
-        self.model_dir = model_dir
-        self.model_path = os.path.join(self.model_dir, MODEL_FILENAME)
-        self.voices_path = os.path.join(self.model_dir, VOICES_FILENAME)
+    def __init__(self):
         self.kokoro_instance = None
         self._load_kokoro_model()
 
     def _load_kokoro_model(self):
-        """Loads the Kokoro model and voices."""
         downloadUtils.ensure_kokoro_assets_exist()
         try:
-            print("Initializing Kokoro model...")
-            self.kokoro_instance = Kokoro(model_path=self.model_path, voices_path=self.voices_path)
+            self.kokoro_instance = Kokoro(
+                model_path=constants.MODEL_PATH, 
+                voices_path=constants.VOICES_PATH
+            )
             print("Kokoro model initialized.")
         except Exception as e:
             logger.error(f"ERROR: Could not load kokoro-onnx: {e}")
             raise
 
-    def get_speaker_embedding(self, speaker_name: str) -> dict:
-        """Retrieves the speaker embedding for a given speaker name."""
+    def get_speaker_data(self, speaker_name: str) -> dict:
         if self.kokoro_instance is None:
             self._load_kokoro_model()
-        speaker_embedding: np.ndarray = self.kokoro_instance.get_voice_style(speaker_name)
-        return {"speaker": speaker_embedding} # Match the dict format from ComfyUI node
+        # Get Kokoro speaker style
+        speaker_data: np.ndarray = self.kokoro_instance.get_voice_style(speaker_name)
+        return {"speaker": speaker_data}
 
     def generate_audio(self, text: str, speaker_data: dict, speed: float = 1.0, lang_display: str = "English") -> tuple:
-        """Generates audio from text using the specified speaker, speed, and language."""
         if self.kokoro_instance is None:
             self._load_kokoro_model()
 
-        lang_code = supported_languages.get(lang_display, "en-us") # Default to en-us if not found
+        lang_code = constants.SUPPORTED_LANGUAGES.get(lang_display, "en-us") # Default to en-us if not found
 
         try:
             print(f"Generating audio for text: '{text[:50]}...' with speaker '{speaker_data.get('name', 'unknown')}' and language '{lang_display}'...")
@@ -63,18 +60,22 @@ def play_audio(audio_array: np.ndarray, sample_rate: int):
         print("Playing audio...")
         sd.play(audio_array, samplerate=sample_rate)
     except Exception as e:
-        print(f"Error playing audio. Make sure you have an audio device and 'sounddevice' is configured: {e}")
+        print(f"Error playing audio: {e}")
 
 def stop_audio():
     try:
         sd.stop()
         print("Audio playback stopped.")
     except Exception as e:
-        print(f"Error stopping audio playback: {e}")
+        print(f"Error stopping audio: {e}")
 
 def save_audio_to_wav(audio_array: np.ndarray, sample_rate: int):
     try:
-        file_path = filedialog.asksaveasfilename(defaultextension=".wav", filetypes=[("WAV files", "*.wav")], title="Save Audio As")
+        file_path = filedialog.asksaveasfilename(
+            title="Save Audio As",
+            defaultextension=".wav", 
+            filetypes=[("WAV files", "*.wav")]
+        )
         sf.write(file_path, audio_array, sample_rate)
     except Exception as e:
         print(f"Error saving audio to WAV: {e}")
@@ -114,7 +115,7 @@ class TTSApp:
 
         # Initialize Kokoro TTS
         try:
-            self.kokoro_tts = KokoroTTS(MODEL_DIR)
+            self.kokoro_tts = KokoroTTS()
         except Exception as e:
             messagebox.showerror(
                 "Initialization Error", 
@@ -143,13 +144,13 @@ class TTSApp:
         # Language Selection
         language_label = ttk.Label(settings_frame, text="Language:")
         language_label.grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.language_dropdown = ttk.Combobox(settings_frame, textvariable=self.selected_language, values=supported_languages_display, state="readonly")
+        self.language_dropdown = ttk.Combobox(settings_frame, textvariable=self.selected_language, values=constants.SUPPORTED_LANGUAGES_DISPLAY, state="readonly")
         self.language_dropdown.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
 
         # Speaker Selection
         speaker_label = ttk.Label(settings_frame, text="Speaker:")
         speaker_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self.speaker_dropdown = ttk.Combobox(settings_frame, textvariable=self.selected_speaker, values=supported_voices, state="readonly")
+        self.speaker_dropdown = ttk.Combobox(settings_frame, textvariable=self.selected_speaker, values=constants.SUPPORTED_LANGUAGES, state="readonly")
         self.speaker_dropdown.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
 
         # Set initial values for dropdowns
@@ -157,7 +158,7 @@ class TTSApp:
         self.speaker_dropdown.set(self.initial_speaker)
 
         # Speed Input
-        speed_label = ttk.Label(settings_frame, text="Speech Speed (0.1-4.0):")
+        speed_label = ttk.Label(settings_frame, text="Speech Speed (0.1 - 4.0):")
         speed_label.grid(row=2, column=0, padx=5, pady=5, sticky="w")
         self.speed_entry = ttk.Entry(settings_frame, width=10, font=("Arial", 10))
         self.speed_entry.grid(row=2, column=1, padx=5, pady=5, sticky="w")
@@ -167,19 +168,19 @@ class TTSApp:
         button_frame = tk.Frame(self.master, padx=10, pady=10)
         button_frame.pack(padx=10, pady=10, fill="x")
 
-        self.generate_button = ttk.Button(button_frame, text="Generate & Play Audio", command=self.generate_and_play_audio)
+        self.generate_button = ttk.Button(button_frame, text="Generate & Play Audio", command=self.generate_button_clicked)
         self.generate_button.pack(side=tk.LEFT, padx=5, expand=True, fill="x")
 
         self.play_button = ttk.Button(button_frame, text="Play Last Generated Audio", command=self.play_last_audio, state=tk.DISABLED)
         self.play_button.pack(side=tk.LEFT, padx=5, expand=True, fill="x")
         
-        self.stop_button = ttk.Button(button_frame, text="Save", command=self.save_last_audio, state=tk.ACTIVE)
+        self.save_button = ttk.Button(button_frame, text="Save", command=self.save_button_clicked, state=tk.ACTIVE)
+        self.save_button.pack(side=tk.LEFT, padx=5)
+
+        self.stop_button = ttk.Button(button_frame, text="Stop", command=self.stop_button_clicked, state=tk.ACTIVE)
         self.stop_button.pack(side=tk.LEFT, padx=5)
 
-        self.stop_button = ttk.Button(button_frame, text="Stop", command=self.stop_last_audio, state=tk.ACTIVE)
-        self.stop_button.pack(side=tk.LEFT, padx=5)
-
-    def generate_and_play_audio(self):
+    def generate_button_clicked(self):
         input_text = self.text_input.get("1.0", tk.END).strip()
         if not input_text:
             messagebox.showwarning("Input Error", "Please enter some text to synthesize.")
@@ -211,7 +212,7 @@ class TTSApp:
 
         try:
             # 1. Get speaker embedding
-            speaker_embedding = self.kokoro_tts.get_speaker_embedding(selected_speaker_key)
+            speaker_embedding = self.kokoro_tts.get_speaker_data(selected_speaker_key)
             speaker_embedding["name"] = selected_speaker_key # Add name for logging clarity
 
             # 2. Generate audio
@@ -243,10 +244,10 @@ class TTSApp:
         else:
             messagebox.showinfo("No Audio", "No audio has been generated yet. Please generate audio first.")
 
-    def stop_last_audio(self):
+    def stop_button_clicked(self):
         stop_audio()
 
-    def save_last_audio(self):
+    def save_button_clicked(self):
         save_audio_to_wav(self.last_audio_data, self.last_sample_rate)
 
     def on_closing(self):

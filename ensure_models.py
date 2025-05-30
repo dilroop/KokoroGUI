@@ -12,41 +12,44 @@ import constants
 # --- Configuration and Download Functions ---
 logger = logging.getLogger(__name__)
 
-MODEL_FILENAME = "kokoro_v1.onnx"
-VOICES_FILENAME = "voices_v1.bin"
-
-def download_file(url, file_name, path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-    full_file_path = os.path.join(path, file_name)
-    if os.path.exists(full_file_path):
-        print(f"'{file_name}' already exists. Skipping download.")
+def download_file():
+    # Directory: kokoro_models
+    modelsDir = constants.MODELS_DIR
+    # Models Path: kokoro_models/kokoro.onnx
+    modelPath = constants.MODEL_PATH
+    # URL for the model
+    modelUrl = constants.MODEL_URL
+    
+    if not os.path.exists(modelsDir):
+        os.makedirs(modelsDir)
+ 
+    if os.path.exists(modelPath):
+        print(f"'{modelPath}' already exists. Skipping download.")
         return
-    print(f"Downloading {file_name} from {url}...")
-    with requests.get(url, stream=True, allow_redirects=True) as response:
+    
+    print(f"Downloading {modelPath} from {modelUrl}...")
+    with requests.get(modelUrl, stream=True, allow_redirects=True) as response:
         response.raise_for_status() # Raise an exception for bad status codes
         total_size = int(response.headers.get('content-length', 0))
         block_size = 4096  # 4KB blocks
-        progress_bar = tqdm(total=total_size, unit='B', unit_scale=True, desc=file_name)
-        with open(full_file_path, 'wb') as file:
+        progress_bar = tqdm(total=total_size, unit='B', unit_scale=True, desc=modelPath)
+        with open(modelPath, 'wb') as file:
             for data in response.iter_content(block_size):
                 progress_bar.update(len(data))
                 file.write(data)
         progress_bar.close()
-    print(f"Downloaded '{file_name}' to {full_file_path}")
+    print(f"Downloaded at {modelPath}")
 
-def download_voices_data(path):
-    """Downloads individual voice files and saves them into a single .bin file."""
-    file_path = os.path.join(path, VOICES_FILENAME)
-    if os.path.exists(file_path):
-        print(f"'{VOICES_FILENAME}' already exists. Skipping download.")
+def download_voices_data():
+    # Check if the voices file already exists
+    if os.path.exists(constants.VOICES_PATH):
+        print(f"'{constants.VOICES_PATH}' already exists. Skipping download.")
         return
 
-    names = constants.supported_voices
+    names = constants.SUPPORTED_VOICES
     pattern = "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/voices/{name}.pt"
     voices = {}
 
-    print(f"Downloading individual voice files and compiling into '{VOICES_FILENAME}'...")
     for name in tqdm(names, desc="Downloading voices"):
         url = pattern.format(name=name)
         try:
@@ -56,22 +59,21 @@ def download_voices_data(path):
             # Use map_location='cpu' to load to CPU, preventing potential CUDA errors
             # if a GPU isn't available or configured for torch.
             data: np.ndarray = torch.load(content, map_location='cpu').numpy()
-            voices.update({name: data}) # Use update for dictionary merging
+            voices.update({name: data})
         except Exception as e:
             logger.warning(f"Failed to download voice '{name}' from {url}: {e}")
-            continue # Continue to the next voice if one fails
+            continue
 
     if not voices:
         raise RuntimeError("No voices were successfully downloaded. Cannot create voices file.")
 
-    with open(file_path, "wb") as f:
+    with open(constants.VOICES_PATH, "wb") as f:
         np.savez(f, **voices)
-    print(f"Created {file_path}")
+    print(f"Created {constants.VOICES_PATH}")
 
 def ensure_kokoro_assets_exist():
-    """Ensures the Kokoro model and voices are downloaded."""
-    download_file(constants.MODEL_URL, MODEL_FILENAME, constants.MODEL_DIR)
-    download_voices_data(constants.MODEL_DIR)
+    download_file()
+    download_voices_data()
 
 
 def generate_timestamp_filename(prefix: str = "synthesized_audio", extension: str = ".wav") -> str:
