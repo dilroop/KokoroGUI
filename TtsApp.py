@@ -150,7 +150,7 @@ class TTSApp:
         # Speaker Selection
         speaker_label = ttk.Label(settings_frame, text="Speaker:")
         speaker_label.grid(row=1, column=0, padx=5, pady=5, sticky="w")
-        self.speaker_dropdown = ttk.Combobox(settings_frame, textvariable=self.selected_speaker, values=constants.SUPPORTED_LANGUAGES, state="readonly")
+        self.speaker_dropdown = ttk.Combobox(settings_frame, textvariable=self.selected_speaker, values=constants.SUPPORTED_VOICES, state="readonly")
         self.speaker_dropdown.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
 
         # Set initial values for dropdowns
